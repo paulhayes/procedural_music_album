@@ -13,9 +13,7 @@ volatile unsigned long timerCount = 0;
 
 void setup() {
   
-  setupTimer();
-  
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  setupTimer();  
   setOutputAndInterupts();
 }
 
@@ -25,7 +23,7 @@ void loop() {
 
 // Sample interrupt
 ISR(TIMER0_COMPA_vect) {  
-  unsigned int t = p;
+  unsigned long t = p;
   unsigned long anHour = 28800000;
   timerCount++;
   
@@ -38,10 +36,10 @@ ISR(TIMER0_COMPA_vect) {
   char sample = 0;
   switch( song ){
     case 0:
-    sample = (t&(t>>6)+(t<<((t>>11)^((t>>13)+3))|((t>>14%64)+(t>>14)))&(-t>>5));
+    sample = (t&(t>>6)+(t<<((t>>11)^((t>>13)+3L))|((t>>14%64L)+(t>>14)))&(-t>>5));
     break;
     case 1:
-    sample = ((t>>9)&(t^(-t>>8)+t)+20*(t>>17)%256)>>1;  
+    sample = ((t>>9)&(t^(-t>>8)+t)+20L*(t>>17)%256L)>>1;  
     break;
   }
   p++;
@@ -56,8 +54,8 @@ ISR(TIMER0_COMPA_vect) {
 
 ISR(PCINT0_vect)
 {    
-    
-    if( ((timerCount-lastInteruptTime)>400) && (PINB&(1<<BUTTON_PIN))>0 ){
+    //(PINB&(1<<BUTTON_PIN))!=0
+    if( ((timerCount-lastInteruptTime)>400) && digitalRead(BUTTON_PIN)==HIGH ){
       song++;
       
       if( song > 1 ){
@@ -72,6 +70,10 @@ ISR(PCINT0_vect)
 }
 
 void setupTimer(){
+
+  lastInteruptTime= 0;
+  timerCount = 0;
+  
   // Enable 64 MHz PLL and use as source for Timer1
   PLLCSR = 1<<PCKE | 1<<PLLE;     
   // Set up Timer/Counter1 for PWM output
@@ -90,12 +92,14 @@ void setupTimer(){
 void setOutputAndInterupts(){
   pinMode(4, OUTPUT);
   pinMode(1, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT);
   //DDRB |= B010010;
 
   
   //DDRB |= B000100;
   //PORTB &= ~B000100;
   
+  DDRB &= ~(1<<BUTTON_PIN);  
   PORTB |= 1<<BUTTON_PIN;
 
   GIMSK = 0b00100000;    // turns on pin change interrupts
@@ -106,11 +110,15 @@ void setOutputAndInterupts(){
 
 void sleep()
 {
+  TIMSK = 0;
+  PORTB = _BV(BUTTON_PIN);
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   adc_disable();
   sleep_enable();
+  sei();
   sleep_cpu();  // 1uA
 
   sleep_disable();
   setupTimer();
+  setOutputAndInterupts();
 }
