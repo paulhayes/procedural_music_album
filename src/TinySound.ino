@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 #define adc_disable()  (ADCSRA &= ~(1<<ADEN))
 #define adc_enable() (ADCSRA |= (1<<ADEN) )
 #define BUTTON_PIN 3
